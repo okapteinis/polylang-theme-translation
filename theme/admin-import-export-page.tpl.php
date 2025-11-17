@@ -5,18 +5,20 @@ switch ($data['msg']) {
         <div class="notice notice-success is-dismissible">
             <p>
                 <?php
-                print sprintf('%s. %s: %d.', __('Translations updated', 'polylang-tt'), __('Items', 'polylang-tt'), $data['items']);
+                echo esc_html(sprintf('%s. %s: %d.', __('Translations updated', 'polylang-tt'), __('Items', 'polylang-tt'), $data['items']));
                 ?>
             </p>
         </div>
         <?php
         break;
     case "translations-import-error":
+    case "translations-import-error-invalid-type":
+    case "translations-import-error-size":
         ?>
         <div class="notice notice-error is-dismissible">
             <p>
                 <?php
-                print __('Translations import error.', 'polylang-tt');
+                echo esc_html(__('Translations import error.', 'polylang-tt'));
                 ?>
             </p>
         </div>
@@ -27,7 +29,7 @@ switch ($data['msg']) {
         <div class="notice notice-success is-dismissible">
             <p>
                 <?php
-                print __('Settings saved.', 'polylang-tt');
+                echo esc_html(__('Settings saved.', 'polylang-tt'));
                 ?>
             </p>
         </div>
@@ -61,20 +63,20 @@ switch ($data['msg']) {
         </label>
         <label>
             <input type="radio" name="force_translate_admin"
-                   value="<?php print Polylang_Theme_Translation::VALUE_DEFAULT_POLYLANG_LANG; ?>"
+                   value="<?php echo esc_attr(Polylang_Theme_Translation::VALUE_DEFAULT_POLYLANG_LANG); ?>"
                    <?php if ($data['force_translate_admin'] == Polylang_Theme_Translation::VALUE_DEFAULT_POLYLANG_LANG): ?>checked<?php endif; ?>>
             <?php _e('Translate admin dashboard to default polylang language', 'polylang-tt'); ?>
-            [<?php print pll_default_language(); ?>]
+            [<?php echo esc_html(pll_default_language()); ?>]
         </label>
         <label>
             <input type="radio" name="force_translate_admin"
-                   value="<?php print Polylang_Theme_Translation::VALUE_SELECTED_SLUG_LANG; ?>"
+                   value="<?php echo esc_attr(Polylang_Theme_Translation::VALUE_SELECTED_SLUG_LANG); ?>"
                    <?php if ($data['force_translate_admin'] == Polylang_Theme_Translation::VALUE_SELECTED_SLUG_LANG): ?>checked<?php endif; ?>>
             <?php _e("Translate admin dashboard by language selector form the list: 'Show all languages' (slug)", 'polylang-tt'); ?>
         </label>
         <label>
             <input type="radio" name="force_translate_admin"
-                   value="<?php print Polylang_Theme_Translation::VALUE_DEFAULT_USER_PROFILE_LANG; ?>"
+                   value="<?php echo esc_attr(Polylang_Theme_Translation::VALUE_DEFAULT_USER_PROFILE_LANG); ?>"
                    <?php if ($data['force_translate_admin'] == Polylang_Theme_Translation::VALUE_DEFAULT_USER_PROFILE_LANG): ?>checked<?php endif; ?>>
             <?php _e('Translate admin dashboard by user preferences (user profile settings)', 'polylang-tt'); ?>
         </label>
@@ -84,9 +86,9 @@ switch ($data['msg']) {
         <?php foreach ($data['domains'] as $domain): ?>
             <label>
                 <input type="checkbox" name="domains[]"
-                       value="<?php print $domain; ?>"
+                       value="<?php echo esc_attr($domain); ?>"
                        <?php if (in_array($domain, $data['settings']['domains'])): ?>checked<?php endif; ?>>
-                <?php print $domain; ?>
+                <?php echo esc_html($domain); ?>
             </label>
         <?php endforeach; ?>
         <br/>
@@ -94,14 +96,14 @@ switch ($data['msg']) {
         <?php foreach ($data['themes'] as $theme): ?>
             <label>
                 <input type="checkbox" name="themes[]"
-                       value="<?php print $theme; ?>"
+                       value="<?php echo esc_attr($theme); ?>"
                        <?php if (in_array($theme, $data['settings']['themes'])): ?>checked<?php endif; ?>>
-                <?php print $theme; ?>
+                <?php echo esc_html($theme); ?>
                 <small>
                     (
-                    <?php _e('Theme Name:', 'polylang-tt'); ?> <?php print pll_get_theme_fullname($theme); ?>
+                    <?php _e('Theme Name:', 'polylang-tt'); ?> <?php echo esc_html(pll_get_theme_fullname($theme)); ?>
                     ,
-                    <?php _e('Text Domain:', 'polylang-tt'); ?> <?php print pll_get_theme_textdomain($theme); ?>
+                    <?php _e('Text Domain:', 'polylang-tt'); ?> <?php echo esc_html(pll_get_theme_textdomain($theme)); ?>
                     )
                 </small>
             </label>
@@ -111,14 +113,14 @@ switch ($data['msg']) {
         <?php foreach ($data['plugins'] as $plugin): ?>
             <label>
                 <input type="checkbox" name="plugins[]"
-                       value="<?php print $plugin; ?>"
+                       value="<?php echo esc_attr($plugin); ?>"
                        <?php if (in_array($plugin, $data['settings']['plugins'])): ?>checked<?php endif; ?>>
-                <?php print $plugin; ?>
+                <?php echo esc_html($plugin); ?>
                 <small>
                     (
-                    <?php _e('Plugin Name:', 'polylang-tt'); ?> <?php print pll_get_plugin_fullname($plugin); ?>
+                    <?php _e('Plugin Name:', 'polylang-tt'); ?> <?php echo esc_html(pll_get_plugin_fullname($plugin)); ?>
                     ,
-                    <?php _e('Text Domain:', 'polylang-tt'); ?> <?php print pll_get_plugin_textdomain($plugin); ?>
+                    <?php _e('Text Domain:', 'polylang-tt'); ?> <?php echo esc_html(pll_get_plugin_textdomain($plugin)); ?>
                     )
                 </small>
             </label>
