@@ -35,9 +35,9 @@ class Polylang_TT_access
      * Check plugin access.
      * @return bool - if plugin have access to work.
      */
-    public function chceck_plugin_access()
+    public function check_plugin_access()
     {
-        if (!version_compare(phpversion(), '5', '>=')) {
+        if (!version_compare(phpversion(), '7.0', '>=')) {
             add_action('admin_notices', array($this, 'error_php_version'));
             return false;
         } else if (!defined('POLYLANG_VERSION')) {
@@ -54,18 +54,32 @@ class Polylang_TT_access
     public function error_php_version()
     {
         $class = "error";
-        $message = 'The minimum supported PHP version is 5.0 (Current is: ' . phpversion() . ').';
-        print "<div class=\"$class\"> <p>$this->plugin_name: $message</p></div>";
+        $message = 'The minimum supported PHP version is 7.0 (Current is: ' . phpversion() . ').';
+        printf(
+            '<div class="%s"><p>%s: %s</p></div>',
+            esc_attr($class),
+            esc_html($this->plugin_name),
+            esc_html($message)
+        );
     }
 
     /**
-     * Display PHP version error.
+     * Display Polylang dependency error.
      */
     public function error_polylang_disable()
     {
         $class = "error";
-        $message = 'Please, download and activate <a href="https://wordpress.org/plugins/polylang/">Polylang</a> plugin.';
-        print "<div class=\"$class\"> <p>$this->plugin_name: $message</p></div>";
+        $message = sprintf(
+            /* translators: %s: link to Polylang plugin */
+            __('Please, download and activate %s plugin.', 'polylang-tt'),
+            '<a href="https://wordpress.org/plugins/polylang/">Polylang</a>'
+        );
+        printf(
+            '<div class="%s"><p>%s: %s</p></div>',
+            esc_attr($class),
+            esc_html($this->plugin_name),
+            wp_kses_post($message)
+        );
     }
 
     /**
@@ -77,10 +91,14 @@ class Polylang_TT_access
         global $pagenow;
 
         if (is_admin() && isset($_GET['page']) && !empty($pagenow)) {
-            if ($pagenow === 'options-general.php' && $_GET['page'] === 'mlang' && isset($_GET['tab']) && $_GET['tab'] === 'strings') {
+            // Security: sanitize GET parameters
+            $page = isset($_GET['page']) ? sanitize_text_field($_GET['page']) : '';
+            $tab = isset($_GET['tab']) ? sanitize_text_field($_GET['tab']) : '';
+
+            if ($pagenow === 'options-general.php' && $page === 'mlang' && $tab === 'strings') {
                 // wp-admin/options-general.php?page=mlang&tab=strings
                 return true;
-            } elseif ($pagenow === 'admin.php' && $_GET['page'] === 'mlang_strings') {
+            } elseif ($pagenow === 'admin.php' && $page === 'mlang_strings') {
                 // wp-admin/admin.php?page=mlang_strings
                 return true;
             }

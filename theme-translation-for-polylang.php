@@ -117,10 +117,10 @@ class Polylang_Theme_Translation {
 	/**
 	 * Register strings from dir in polylang engine using cache.
 	 *
-	 * @param $path
-	 * @param $name
+	 * @param string $path Directory path to scan
+	 * @param string $name Name of the theme/plugin/domain
 	 *
-	 * @return array
+	 * @return array Array of strings found
 	 */
 	protected function register_stings_from_dir($path, $name) {
 		//todo: https://wordpress.org/support/topic/allow-custom-directory-to-scan-theme/#post-16736078
@@ -132,7 +132,10 @@ class Polylang_Theme_Translation {
 		else {
 			$files = $this->get_files_from_dir($path);
 			$strings = $this->file_scanner($files);
-			set_transient($cacheKey, $strings, MINUTE_IN_SECONDS); // todo: add cache cleaner
+
+			// Performance: cache for 1 day instead of 1 minute (customizable via filter)
+			$cache_duration = apply_filters('ttfp_cache_duration', DAY_IN_SECONDS);
+			set_transient($cacheKey, $strings, $cache_duration);
 		}
 		$this->add_to_polylang_register($strings, $name);
 		return $strings;
@@ -140,12 +143,51 @@ class Polylang_Theme_Translation {
 
 	/**
 	 * Get files from dictionary recursive.
+	 *
+	 * @param string $dir_name Directory path to scan
+	 * @param int $max_depth Maximum recursion depth (default: 10)
+	 * @param int $current_depth Current recursion depth
+	 * @return array Array of file paths
 	 */
-	protected function get_files_from_dir($dir_name) {
+	protected function get_files_from_dir($dir_name, $max_depth = 10, $current_depth = 0) {
 		$results = [];
-		$files = scandir($dir_name);
+
+		// Security: prevent infinite recursion
+		if ($current_depth > $max_depth) {
+			return $results;
+		}
+
+		// Security: check directory is readable
+		if (!is_readable($dir_name)) {
+			return $results;
+		}
+
+		// Security: excluded directories to prevent scanning sensitive/large directories
+		$excluded_dirs = ['.git', 'vendor', 'node_modules', '.svn', '.hg', 'CVS', 'dist', 'build', 'tests'];
+
+		$files = @scandir($dir_name);
+		if ($files === false) {
+			return $results;
+		}
+
 		foreach ($files as $key => $value) {
+			// Skip current and parent directory references
+			if ($value === '.' || $value === '..') {
+				continue;
+			}
+
+			// Security: skip excluded directories
+			if (in_array($value, $excluded_dirs, true)) {
+				continue;
+			}
+
 			$path = realpath($dir_name . DIRECTORY_SEPARATOR . $value);
+
+			// Security: verify path is valid and within allowed directory
+			if ($path === false || strpos($path, realpath($dir_name)) !== 0) {
+				continue;
+			}
+
 			if (!is_dir($path)) {
 				$path_parts = pathinfo($path);
 				if (!empty($path_parts['extension']) && in_array($path_parts['extension'], $this->files_extensions)) {
@@ -153,10 +195,8 @@ class Polylang_Theme_Translation {
 				}
 			}
 			else {
-				if ($value != "." && $value != "..") {
-					$temp = $this->get_files_from_dir($path);
-					$results = array_merge($results, $temp);
-				}
+				$temp = $this->get_files_from_dir($path, $max_depth, $current_depth + 1);
+				$results = array_merge($results, $temp);
 			}
 		}
 		return $results;
@@ -241,7 +281,7 @@ add_action('init', 'process_polylang_theme_translation');
 
 function process_polylang_theme_translation() {
 	if (Polylang_TT_access::get_instance()->is_polylang_page()) {
-		if (Polylang_TT_access::get_instance()->chceck_plugin_access()
+		if (Polylang_TT_access::get_instance()->check_plugin_access()
 			&& apply_filters('ttfp_translation_access', current_user_can('manage_options'))) {
 			$plugin_obj = new Polylang_Theme_Translation();
 			$plugin_obj->run();
@@ -265,23 +305,61 @@ function process_polylang_theme_translation_wp_loaded() {
 
 	if (current_user_can('manage_options') && $pagenow === 'admin.php') {
 		if (isset($_POST['export_strings']) && (int) $_POST['export_strings'] === 1) {
+			// CSRF protection: verify nonce
+			check_admin_referer('export_strings', '_wpnonce_export_strings');
 			$translation = new Polylang_Theme_Translation();
 			$exporter = new Polylang_TT_exporter($translation);
 			$exporter->export();
 		}
 
 		if (isset($_POST["action_import_strings"])) {
+			// CSRF protection: verify nonce
+			check_admin_referer('import_strings', '_wpnonce_import_strings');
+
 			if (PLL() instanceof PLL_Settings) {
+				// File upload security: check for upload errors
+				if (!isset($_FILES["import_strings"]) || $_FILES["import_strings"]["error"] !== UPLOAD_ERR_OK) {
+					wp_redirect((add_query_arg('_msg', 'translations-import-error', wp_get_referer())));
+					exit;
+				}
+
+				// File upload security: validate file extension
+				$file_name = isset($_FILES["import_strings"]["name"]) ? $_FILES["import_strings"]["name"] : '';
+				$file_ext = strtolower(pathinfo($file_name, PATHINFO_EXTENSION));
+				if ($file_ext !== 'csv') {
+					wp_redirect((add_query_arg('_msg', 'translations-import-error-invalid-type', wp_get_referer())));
+					exit;
+				}
+
+				// File upload security: enforce file size limit (5MB)
+				$max_size = 5 * 1024 * 1024; // 5MB
+				if ($_FILES["import_strings"]["size"] > $max_size) {
+					wp_redirect((add_query_arg('_msg', 'translations-import-error-size', wp_get_referer())));
+					exit;
+				}
+
+				// File upload security: validate MIME type
 				$fileName = $_FILES["import_strings"]["tmp_name"];
+				if (function_exists('mime_content_type')) {
+					$mime_type = mime_content_type($fileName);
+					$allowed_mimes = ['text/csv', 'text/plain', 'application/csv', 'application/vnd.ms-excel'];
+					if (!in_array($mime_type, $allowed_mimes, true)) {
+						wp_redirect((add_query_arg('_msg', 'translations-import-error-invalid-type', wp_get_referer())));
+						exit;
+					}
+				}
+
 				if ($_FILES["import_strings"]["size"] > 0 && $fileName) {
 					$importer = new Polylang_TT_importer();
 					$counter = $importer->import($fileName);
 
-					wp_redirect((add_query_arg([
-						'_msg' => 'translations-imported',
-						'items' => $counter,
-					], wp_get_referer())));
-					exit;
+					if ($counter > 0) {
+						wp_redirect((add_query_arg([
+							'_msg' => 'translations-imported',
+							'items' => $counter,
+						], wp_get_referer())));
+						exit;
+					}
 				}
 			}
 			wp_redirect((add_query_arg('_msg', 'translations-import-error', wp_get_referer())));
@@ -290,6 +368,9 @@ function process_polylang_theme_translation_wp_loaded() {
 
 
 		if (isset($_POST['action_settings'])) {
+			// CSRF protection: verify nonce
+			check_admin_referer('settings', '_wpnonce_settings');
+
 			$settings = [
 				'themes' => [],
 				'plugins' => [],
@@ -404,7 +485,12 @@ function pll_admin_current_language_tt_for_polylang($curlang, $admin) {
 	return $curlang;
 }
 
-add_filter('wp_plugin_dependencies_slug', 'convert_pll_to_polylang_pro');
+// ClassicPress compatibility: Only register WordPress 6.5+ filter if supported
+// The wp_plugin_dependencies_slug filter was introduced in WordPress 6.5 and is not available in ClassicPress
+if (!function_exists('classicpress_version') && version_compare($GLOBALS['wp_version'], '6.5', '>=')) {
+	add_filter('wp_plugin_dependencies_slug', 'convert_pll_to_polylang_pro');
+}
+
 function convert_pll_to_polylang_pro($slug) {
 	if ('polylang' === $slug) {
 		if (is_plugin_active('polylang-pro/polylang-pro.php') || is_plugin_active('polylang-pro/polylang.php')) {
@@ -438,4 +524,36 @@ function tt_pll_set_language_rest($result, $server, $request) {
 	}
 
 	return $result;
+}
+
+/**
+ * Clear TTfP translation cache.
+ *
+ * This function removes all cached translation strings to force
+ * a fresh scan of themes and plugins.
+ */
+function ttfp_clear_cache() {
+	global $wpdb;
+	$wpdb->query(
+		$wpdb->prepare(
+			"DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s",
+			'_transient_ttfp_cache_strings_from:%',
+			'_transient_timeout_ttfp_cache_strings_from:%'
+		)
+	);
+}
+
+// Performance: Clear cache when themes are switched
+add_action('switch_theme', 'ttfp_clear_cache');
+
+// Performance: Clear cache when plugins are activated/deactivated
+add_action('activated_plugin', 'ttfp_clear_cache');
+add_action('deactivated_plugin', 'ttfp_clear_cache');
+
+// Performance: Clear cache when plugins are updated
+add_action('upgrader_process_complete', 'ttfp_clear_cache_on_update', 10, 2);
+function ttfp_clear_cache_on_update($upgrader_object, $options) {
+	if ($options['action'] === 'update' && ($options['type'] === 'plugin' || $options['type'] === 'theme')) {
+		ttfp_clear_cache();
+	}
 }
