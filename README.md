@@ -117,11 +117,57 @@ When a new version is released on WordPress.org:
 3. Commit with version sync message
 4. Switch to nightly branch for any custom development
 
+## Security
+
+This plugin has undergone comprehensive security hardening in the nightly branch:
+
+### Security Features
+
+- **CSRF Protection:** All forms (export, import, settings) are protected with WordPress nonce verification
+- **XSS Prevention:** All output is properly escaped using `esc_html()`, `esc_attr()`, and `wp_kses_post()`
+- **File Upload Security:**
+  - MIME type validation for CSV imports
+  - File extension verification
+  - File size limits (5MB maximum)
+  - Upload error handling
+- **CSV Injection Protection:** Sanitization of cells starting with dangerous characters (`=`, `+`, `-`, `@`, `|`, `%`)
+- **Directory Traversal Protection:**
+  - Path validation using `realpath()`
+  - Exclusion of sensitive directories (`.git`, `vendor`, `node_modules`)
+  - Maximum recursion depth limits
+- **Input Sanitization:** All GET and POST parameters are sanitized
+- **SQL Injection Prevention:** Uses WordPress database APIs exclusively
+- **Secure File Operations:** Error handling for all file operations
+
+### Performance Optimizations
+
+- **Improved Caching:** Extended cache duration from 1 minute to 1 day (customizable)
+- **Automatic Cache Invalidation:** Cache automatically clears when themes/plugins change
+- **Efficient Directory Scanning:** Excludes vendor and development directories
+
+### Compatibility
+
+- **WordPress:** 6.0 - 6.7+ compatible
+- **ClassicPress:** 1.x and 2.x compatible
+- **PHP:** 7.0 - 8.4 compatible
+
+For detailed security audit report, see [claude.md](claude.md) in the repository.
+
 ## Version History
 
-### Version 3.4.9 (Current)
+### Version 3.4.9 (Current - Security Hardened)
+- **Security:** Added CSRF protection to all forms
+- **Security:** Fixed XSS vulnerabilities in admin interface
+- **Security:** Enhanced file upload validation (MIME, size, extension)
+- **Security:** Added CSV injection protection
+- **Security:** Improved directory traversal protection
+- **Performance:** Increased cache duration from 1 minute to 1 day
+- **Performance:** Added automatic cache invalidation hooks
+- **Compatibility:** Added ClassicPress support
+- **Code Quality:** Fixed method name typo, updated PHP version check to 7.0
+- **Code Quality:** Standardized output functions and added proper escaping
 - Synced with WordPress.org official release
-- Tested up to WordPress 6.6
+- Tested up to WordPress 6.7
 - PHP 7.0+ requirement
 
 ## Documentation
