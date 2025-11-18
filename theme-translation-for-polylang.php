@@ -537,8 +537,8 @@ function ttfp_clear_cache() {
 	$wpdb->query(
 		$wpdb->prepare(
 			"DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s",
-			'_transient_ttfp_cache_strings_from:%',
-			'_transient_timeout_ttfp_cache_strings_from:%'
+			$wpdb->esc_like( '_transient_ttfp_cache_strings_from:' ) . '%',
+			$wpdb->esc_like( '_transient_timeout_ttfp_cache_strings_from:' ) . '%'
 		)
 	);
 }
